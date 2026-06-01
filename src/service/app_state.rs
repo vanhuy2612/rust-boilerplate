@@ -4,10 +4,12 @@ use std::{env, sync::Arc, time::Duration};
 
 use crate::service::cpu_worker_pool::CpuWorkerPool;
 use crate::service::io_service::{IoServiceError, build_db_pool, build_weather_url};
+use crate::service::io_worker_pool::IoWorkerPool;
 
 pub struct AppState {
     pub cpu_worker_pool: CpuWorkerPool,
     pub db_pool: mysql_async::Pool,
+    pub io_worker_pool: IoWorkerPool,
     pub kafka_brokers: Vec<String>,
     pub kafka_topic: String,
     pub http_client: Client,
@@ -45,6 +47,7 @@ impl AppState {
         Ok(Arc::new(Self {
             cpu_worker_pool: CpuWorkerPool::new_for_available_parallelism(),
             db_pool,
+            io_worker_pool: IoWorkerPool::from_env(),
             kafka_brokers,
             kafka_topic,
             http_client,

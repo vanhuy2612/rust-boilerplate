@@ -4,6 +4,8 @@ services:
     container_name: rust-boilerplate
     env_file:
       - .env
+    environment:
+      IO_WORKER_COUNT: 320
     ports:
       - "3000:3000"
     cpus: 10.0

@@ -152,6 +152,11 @@ pub async fn publish_to_queue(state: &AppState) -> Result<Value, IoServiceError>
 }
 
 pub async fn call_external_api(state: &AppState) -> Result<Value, IoServiceError> {
+    let _io_permit = state
+        .io_worker_pool
+        .acquire()
+        .await
+        .map_err(|error| IoServiceError::Config(format!("IO worker pool closed: {error}")))?;
     let response = state
         .http_client
         .get(&state.weather_url)
