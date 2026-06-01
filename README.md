@@ -1,1 +1,1 @@
-# rust-boilerplate
+# rust
