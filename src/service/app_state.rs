@@ -2,9 +2,11 @@ use dotenvy::dotenv;
 use reqwest::Client;
 use std::{env, sync::Arc, time::Duration};
 
+use crate::service::cpu_worker_pool::CpuWorkerPool;
 use crate::service::io_service::{IoServiceError, build_db_pool, build_weather_url};
 
 pub struct AppState {
+    pub cpu_worker_pool: CpuWorkerPool,
     pub db_pool: mysql_async::Pool,
     pub kafka_brokers: Vec<String>,
     pub kafka_topic: String,
@@ -41,6 +43,7 @@ impl AppState {
             .map_err(IoServiceError::Http)?;
 
         Ok(Arc::new(Self {
+            cpu_worker_pool: CpuWorkerPool::new_for_available_parallelism(),
             db_pool,
             kafka_brokers,
             kafka_topic,

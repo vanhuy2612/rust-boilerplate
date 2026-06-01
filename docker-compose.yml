@@ -1,0 +1,11 @@
+services:
+  rust:
+    image: rust:0
+    container_name: rust-boilerplate
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    cpus: 10.0
+    mem_limit: 6g
+    restart: unless-stopped

@@ -1,10 +1,15 @@
 use image::{DynamicImage, ImageBuffer, Rgb, codecs::jpeg::JpegEncoder, imageops::FilterType};
 use std::{fs, io::Cursor, path::Path};
 
-const SOURCE_IMAGE_PATH: &str = "./public/images.jpeg";
+use crate::service::cpu_worker_pool::CpuWorkerPool;
 
-pub async fn render_resized_jpeg() -> Result<Vec<u8>, String> {
-    tokio::task::spawn_blocking(render_resized_jpeg_blocking)
+const SOURCE_IMAGE_PATH: &str = "./public/images.jpeg";
+const OUTPUT_WIDTH: u32 = 500;
+const OUTPUT_HEIGHT: u32 = 500;
+
+pub async fn render_resized_jpeg(cpu_worker_pool: &CpuWorkerPool) -> Result<Vec<u8>, String> {
+    cpu_worker_pool
+        .execute(render_resized_jpeg_blocking)
         .await
         .map_err(|error| error.to_string())?
         .map_err(|error| error.to_string())
@@ -12,7 +17,7 @@ pub async fn render_resized_jpeg() -> Result<Vec<u8>, String> {
 
 fn render_resized_jpeg_blocking() -> Result<Vec<u8>, image::ImageError> {
     let image = load_source_image()?;
-    let resized = image.resize_exact(500, 500, FilterType::Lanczos3);
+    let resized = image.resize_exact(OUTPUT_WIDTH, OUTPUT_HEIGHT, FilterType::Lanczos3);
     let mut buffer = Cursor::new(Vec::new());
     let mut encoder = JpegEncoder::new_with_quality(&mut buffer, 90);
     encoder.encode_image(&resized)?;
