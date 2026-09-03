@@ -17,11 +17,12 @@ FROM debian:bookworm-slim AS runtime
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates libssl3 \
+    && apt-get install -y --no-install-recommends ca-certificates libssl3 htop \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/target/release/rust-boilerplate /usr/local/bin/rust-boilerplate
 COPY --from=builder /app/public ./public
+COPY .env ./.env
 
 EXPOSE 3000
 

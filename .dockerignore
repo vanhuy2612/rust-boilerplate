@@ -1,6 +1,5 @@
 target
 .git
 .idea
-.env
 .DS_Store
 Dockerfile
