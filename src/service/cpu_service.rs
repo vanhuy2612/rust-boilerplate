@@ -1,5 +1,5 @@
 use image::{DynamicImage, ImageBuffer, Rgb, codecs::jpeg::JpegEncoder, imageops::FilterType};
-use std::{fs, io::Cursor, path::Path};
+use std::{io::Cursor, path::Path, sync::Arc};
 
 use crate::service::cpu_worker_pool::CpuWorkerPool;
 
@@ -7,16 +7,19 @@ const SOURCE_IMAGE_PATH: &str = "./public/images.jpeg";
 const OUTPUT_WIDTH: u32 = 500;
 const OUTPUT_HEIGHT: u32 = 500;
 
-pub async fn render_resized_jpeg(cpu_worker_pool: &CpuWorkerPool) -> Result<Vec<u8>, String> {
+/// Resize the (already decoded) source image on the CPU worker pool and encode it as JPEG.
+pub async fn render_resized_jpeg(
+    cpu_worker_pool: &CpuWorkerPool,
+    source_image: Arc<DynamicImage>,
+) -> Result<Vec<u8>, String> {
     cpu_worker_pool
-        .execute(render_resized_jpeg_blocking)
+        .execute(move || render_resized_jpeg_blocking(&source_image))
         .await
         .map_err(|error| error.to_string())?
         .map_err(|error| error.to_string())
 }
 
-fn render_resized_jpeg_blocking() -> Result<Vec<u8>, image::ImageError> {
-    let image = load_source_image()?;
+fn render_resized_jpeg_blocking(image: &DynamicImage) -> Result<Vec<u8>, image::ImageError> {
     let resized = image.resize_exact(OUTPUT_WIDTH, OUTPUT_HEIGHT, FilterType::Lanczos3);
     let mut buffer = Cursor::new(Vec::new());
     let mut encoder = JpegEncoder::new_with_quality(&mut buffer, 90);
@@ -24,18 +27,30 @@ fn render_resized_jpeg_blocking() -> Result<Vec<u8>, image::ImageError> {
     Ok(buffer.into_inner())
 }
 
-fn load_source_image() -> Result<DynamicImage, image::ImageError> {
+/// Decode the source image once at startup. Falls back to a generated image
+/// (also created only once) when the file is missing or unreadable.
+pub fn load_source_image() -> Arc<DynamicImage> {
     let path = Path::new(SOURCE_IMAGE_PATH);
 
-    if path.exists() {
-        return image::open(path);
+    match image::open(path) {
+        Ok(image) => {
+            tracing::info!(
+                path = SOURCE_IMAGE_PATH,
+                width = image.width(),
+                height = image.height(),
+                "loaded source image"
+            );
+            Arc::new(image)
+        }
+        Err(error) => {
+            tracing::warn!(
+                path = SOURCE_IMAGE_PATH,
+                %error,
+                "source image not available, using generated fallback image"
+            );
+            Arc::new(generate_fallback_image())
+        }
     }
-
-    if let Some(parent) = path.parent() {
-        let _ = fs::create_dir_all(parent);
-    }
-
-    Ok(generate_fallback_image())
 }
 
 fn generate_fallback_image() -> DynamicImage {

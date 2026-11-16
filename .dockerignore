@@ -3,3 +3,11 @@ target
 .idea
 .DS_Store
 Dockerfile
+.dockerignore
+docker-compose.yml
+README.md
+# never send secrets or profiling output into the build context
+.env
+dhat-heap.json
+.certs
+dhat-heap

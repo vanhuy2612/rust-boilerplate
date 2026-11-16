@@ -10,6 +10,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tracing = "0.1"
 tracing-subscriber = "0.3"
+tower = { version = "0.5", features = ["limit", "load-shed", "timeout"] }
 tower-http = { version = "0.6", features = ["trace"] }
 image = { version = "0.25", default-features = false, features = ["jpeg"] }
 dotenvy = "0.15"
@@ -17,3 +18,26 @@ kafka = { version = "0.10", default-features = false, features = ["gzip", "snapp
 mysql_async = "0.36"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 uuid = { version = "1", features = ["v4"] }
+dhat = { version = "0.3", optional = true }
+
+[features]
+# Heap profiling (Windows + Linux): `cargo run --features dhat-heap`.
+# Writes reports to ./dhat-heap/ on shutdown (Ctrl+C or DHAT_DURATION_SECS) and on
+# POST /debug/dhat/snapshot (needs DEBUG_ENDPOINTS=true) while the server keeps running.
+# View them at https://nnethercote.github.io/dh_view/dh_view.html
+dhat-heap = ["dep:dhat"]
+
+# Live heap profiling on Linux (jemalloc): exposes /debug/pprof/heap and
+# /debug/pprof/heap/flamegraph while the server is running. Requires
+# _RJEM_MALLOC_CONF=prof:true,... at startup. See README / Dockerfile build args.
+heap-profiling = ["tikv-jemallocator/profiling", "dep:jemalloc_pprof"]
+
+# jemalloc returns freed memory to the OS far better than glibc malloc (per-thread
+# arenas + dynamic mmap threshold keep RSS high) and is much faster than musl malloc.
+# It does not build with the MSVC toolchain, so Windows keeps the system allocator.
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+tikv-jemallocator = "0.6"
+# Read jemalloc counters at runtime (/debug/memory).
+tikv-jemalloc-ctl = { version = "0.6", features = ["stats"] }
+# Heap profile dumps in pprof format (feature `heap-profiling`).
+jemalloc_pprof = { version = "0.8", optional = true, features = ["symbolize", "flamegraph"] }

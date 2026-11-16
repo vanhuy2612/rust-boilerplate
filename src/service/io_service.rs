@@ -1,5 +1,2 @@
-
 #[derive(Debug)]
-pub enum IoServiceError {
-
-}
+pub enum IoServiceError {}

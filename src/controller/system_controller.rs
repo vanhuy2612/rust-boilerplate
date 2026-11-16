@@ -14,7 +14,8 @@ pub async fn hello() -> Json<Value> {
 }
 
 pub async fn cpu_bound(State(state): State<Arc<AppState>>) -> Response<Body> {
-    match cpu_service::render_resized_jpeg(&state.cpu_worker_pool).await {
+    match cpu_service::render_resized_jpeg(&state.cpu_worker_pool, state.source_image.clone()).await
+    {
         Ok(bytes) => jpeg_response(StatusCode::OK, bytes),
         Err(error) => {
             tracing::error!(%error, "failed to render cpu-bound response");

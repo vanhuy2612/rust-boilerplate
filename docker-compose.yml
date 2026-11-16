@@ -1,6 +1,7 @@
 services:
   rust:
-    image: rust:0
+    build: .
+    image: rust-boilerplate:latest
     container_name: rust-boilerplate
     env_file:
       - .env
