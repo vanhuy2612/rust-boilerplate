@@ -32,15 +32,22 @@ ARG CARGO_FEATURES=""
 ARG STRIP=symbols
 WORKDIR /app
 
-# Optional extra root CA (see header). Appended to the build stage's CA bundle,
-# which both apk and cargo use. No-op when the secret is not provided.
-RUN --mount=type=secret,id=extra-ca,required=false \
-    if [ -s /run/secrets/extra-ca ]; then \
-      { echo; cat /run/secrets/extra-ca; } >> /etc/ssl/certs/ca-certificates.crt; \
-    fi
+# Optional extra root CA (see header), appended to the CA bundle that apk and cargo use.
+# It is trusted in the SAME RUN as each download step on purpose: a secret's content is
+# not part of Docker's cache key, so a separate "add CA" layer cached from a build without
+# the secret would be reused silently and the download would fail with a TLS error.
+ARG TRUST_EXTRA_CA='if [ -s /run/secrets/extra-ca ]; then { echo; cat /run/secrets/extra-ca; } >> /etc/ssl/certs/ca-certificates.crt; fi'
 
 # make: required to compile jemalloc (tikv-jemalloc-sys). gcc + musl are already in rust:alpine.
-RUN apk add --no-cache make
+RUN --mount=type=secret,id=extra-ca,required=false \
+    eval "$TRUST_EXTRA_CA" && \
+    apk add --no-cache make || { \
+      echo >&2; \
+      echo "apk failed. If the log says 'server certificate not trusted', the network inspects HTTPS:" >&2; \
+      echo "  docker build --secret id=extra-ca,src=.certs/extra-ca.pem -t rust-boilerplate ." >&2; \
+      echo "  (or: docker compose build, which passes .certs/extra-ca.pem automatically)" >&2; \
+      exit 1; \
+    }
 
 # Size-oriented release settings, applied only to the Docker build
 # (local `cargo build --release` stays fast to compile):
@@ -59,6 +66,8 @@ RUN --mount=type=bind,source=src,target=src \
     --mount=type=cache,target=/app/target/ \
     --mount=type=cache,target=/usr/local/cargo/git/db \
     --mount=type=cache,target=/usr/local/cargo/registry/ \
+    --mount=type=secret,id=extra-ca,required=false \
+    eval "$TRUST_EXTRA_CA" && \
     cargo build --locked --release ${CARGO_FEATURES:+--features "$CARGO_FEATURES"} && \
     cp ./target/release/$APP_NAME /server
 

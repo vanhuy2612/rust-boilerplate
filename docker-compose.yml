@@ -1,6 +1,11 @@
 services:
   rust:
-    build: .
+    build:
+      context: .
+      # Root CAs of the HTTPS-inspecting proxy (Menlo/Kaspersky), so apk and cargo
+      # can download inside the build. Only used during the build, not in the image.
+      secrets:
+        - extra-ca
     image: rust-boilerplate:latest
     container_name: rust-boilerplate
     env_file:
@@ -12,3 +17,8 @@ services:
     cpus: 10.0
     mem_limit: 6g
     restart: unless-stopped
+
+secrets:
+  extra-ca:
+    # Export the proxy's root CAs here (PEM). Not committed (see .gitignore).
+    file: ./.certs/extra-ca.pem
